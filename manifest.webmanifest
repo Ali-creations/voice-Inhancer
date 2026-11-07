@@ -1,0 +1,12 @@
+{
+  "name": "ClearVoice Studio",
+  "short_name": "ClearVoice",
+  "description": "Private, on-device voice cleaning and amplification",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#090d19",
+  "theme_color": "#090d19",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

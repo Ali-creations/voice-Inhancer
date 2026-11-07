@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1020" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>ClearVoice Studio</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="ambient"></div>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">A</span><div><strong>Ampie</strong><small>Audio Studio</small></div></div>
+      <div class="status-pill" id="statusPill"><i></i><span>Ready</span></div>
+    </header>
+
+    <section class="hero">
+      <p class="eyebrow">VOICE ENHANCEMENT</p>
+      <h1>Make every word <em>sound clear.</em></h1>
+      <p>Clean, amplify, and export speech right from your browser. Your audio stays private on this device.</p>
+    </section>
+
+    <nav class="studio-tabs" aria-label="Studio tools">
+      <button class="studio-tab active" data-view="enhancer" type="button">Voice enhancer</button>
+      <button class="studio-tab" data-view="tts" type="button">Text to speech</button>
+      <button class="studio-tab" data-view="stt" type="button">Speech to text</button>
+      <button class="studio-tab" data-view="reference" type="button">Voice reference</button>
+      <button class="studio-tab" data-view="about" type="button">About</button>
+    </nav>
+
+    <section class="workspace tool-view active" id="enhancerView">
+      <div class="source-card glass">
+        <div class="card-heading"><div><span class="step"></span><h2>Your audio</h2></div><button class="icon-btn" id="resetBtn" title="Reset" disabled>↻</button></div>
+        <div class="dropzone" id="dropzone">
+          <div class="mic-orbit"><span>▴</span></div>
+          <h3>Drop your recording here</h3>
+          <p>MP3, WAV, M4A, AAC or OGG · up to 100 MB</p>
+          <button class="primary" id="chooseBtn">Choose audio file</button>
+          <input id="fileInput" type="file" accept="audio/*,.m4a" hidden />
+          <div class="divider"><span>or</span></div>
+          <button class="record-btn" id="recordBtn"><span class="record-dot"></span><span>Tap on me to record</span></button>
+        </div>
+        <div class="file-strip hidden" id="fileStrip">
+          <div class="file-icon">♫</div><div class="file-meta"><strong id="fileName"></strong><span id="fileDetails"></span></div>
+          <button class="icon-btn danger" id="removeBtn" title="Remove">×</button>
+        </div>
+      </div>
+
+      <div class="controls-card glass">
+        <div class="card-heading"><div><span class="step"></span><h2>Enhance</h2></div><span class="auto-badge">SPECTRAL DSP</span></div>
+        <div class="control-list">
+          <div class="preset-row" aria-label="Audio tone preset">
+            <button class="tone-preset active" data-tone="balanced" type="button">Balanced</button>
+            <button class="tone-preset" data-tone="warm" type="button">Warm</button>
+            <button class="tone-preset" data-tone="cold" type="button">Cold / bright</button>
+          </div>
+          <div class="preset-row" aria-label="Noise reduction strength">
+            <button class="noise-preset active" data-noise="35" type="button">Clean</button>
+            <button class="noise-preset" data-noise="55" type="button">Remove background</button>
+            <button class="noise-preset" data-noise="78" type="button">Maximum</button>
+          </div>
+          <label class="control"><div><span>Noise reduction</span><output id="noiseOut">35%</output></div><input id="noise" type="range" min="0" max="100" value="35" /></label>
+          <label class="control"><div><span>Voice clarity</span><output id="clarityOut">50%</output></div><input id="clarity" type="range" min="0" max="100" value="50" /></label>
+          <label class="control"><div><span>Tone warmth</span><output id="bassOut">0 dB</output></div><input id="bass" type="range" min="-8" max="8" value="0" /></label>
+          <label class="control"><div><span>Amplification</span><output id="gainOut">+6 dB</output></div><input id="gain" type="range" min="0" max="18" value="6" /></label>
+          <label class="control"><div><span>Pitch</span><output id="pitchOut">0 st</output></div><input id="pitch" type="range" min="-12" max="12" value="0" step="1" /></label>
+          <label class="control"><div><span>Speed</span><output id="speedOut">1.00×</output></div><input id="speed" type="range" min="50" max="150" value="100" /></label>
+          <label class="control"><div><span>Output loudness</span><output id="volumeOut">85%</output></div><input id="volume" type="range" min="40" max="100" value="85" /></label>
+        </div>
+        <button class="process-btn" id="processBtn" disabled><span>✦</span> Clean my voice</button>
+      </div>
+    </section>
+
+    <section class="result-card glass hidden" id="resultCard">
+      <div class="card-heading"><div><span class="step">03</span><h2>Preview & export</h2></div><span id="processingTime"></span></div>
+      <canvas id="waveform"></canvas>
+      <div class="player">
+        <button class="play-btn" id="playBtn">▶</button>
+        <div class="timeline"><span id="currentTime">0:00</span><input id="seek" type="range" min="0" max="1000" value="0" /><span id="duration">0:00</span></div>
+      </div>
+      <div class="result-actions"><button class="secondary" id="compareBtn">Hear before</button><button class="download-btn" id="downloadBtn">↓ Download WAV</button></div>
+    </section>
+
+    <section class="utility-grid tool-view" id="ttsView">
+      <div class="utility-card glass">
+        <div class="card-heading"><div><span class="step">TTS</span><h2>Text to speech</h2></div></div>
+        <textarea id="ttsText" maxlength="5000" placeholder="Type or paste the text you want spoken…"></textarea>
+        <label class="control"><div><span>Language</span></div><select id="ttsLanguage">
+          <option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="ur-PK">Urdu</option><option value="hi-IN">Hindi</option><option value="es-ES">Spanish</option><option value="fr-FR">French</option><option value="ar-SA">Arabic</option><option value="zh-CN">Chinese (Mandarin)</option>
+        </select></label>
+        <label class="control"><div><span>Voice</span><output id="ttsVoiceName">System voice</output></div><select id="ttsVoice"></select></label>
+        <label class="control"><div><span>Speaking rate</span><output id="ttsRateOut">1.00×</output></div><input id="ttsRate" type="range" min="50" max="200" value="100" /></label>
+        <label class="control"><div><span>Voice pitch</span><output id="ttsPitchOut">1.00</output></div><input id="ttsPitch" type="range" min="50" max="150" value="100" /></label>
+        <label class="control"><div><span>Volume</span><output id="ttsVolumeOut">90%</output></div><input id="ttsVolume" type="range" min="0" max="100" value="90" /></label>
+        <p class="utility-note" id="ttsNote">TTS quality and language support depend on voices installed in your browser or operating system.</p>
+        <div class="result-actions"><button class="secondary" id="ttsStop" type="button">Stop</button><button class="download-btn" id="ttsSpeak" type="button">Speak text</button></div>
+      </div>
+    </section>
+
+    <section class="utility-grid tool-view" id="sttView">
+      <div class="utility-card glass">
+        <div class="card-heading"><div><span class="step">STT</span><h2>Speech to text</h2></div><span class="auto-badge" id="sttStatus">MIC OFF</span></div>
+        <textarea id="sttText" placeholder="Your transcript appears here…"></textarea>
+        <label class="control"><div><span>Language</span></div><select id="sttLanguage"><option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="ur-PK">Urdu</option><option value="hi-IN">Hindi</option><option value="es-ES">Spanish</option><option value="fr-FR">French</option><option value="ar-SA">Arabic</option><option value="zh-CN">Chinese (Mandarin)</option></select></label>
+        <div class="result-actions"><button class="secondary" id="sttCopy" type="button">Copy text</button><button class="download-btn" id="sttStart" type="button">Start listening</button></div>
+        <p class="utility-note" id="sttNote">Uses the browser speech-recognition feature. Recognition availability and privacy depend on the browser.</p>
+      </div>
+    </section>
+
+    <section class="utility-grid tool-view" id="referenceView">
+      <div class="utility-card glass">
+        <div class="card-heading"><div><span class="step">REFERENCE</span><h2>Analyze voice characteristics</h2></div></div>
+        <p class="utility-note">Upload a clean voice sample to estimate pitch range, warmth, brightness, loudness, and suggested presets. This does not clone or imitate a person’s voice.</p>
+        <div class="reference-upload">
+          <input id="referenceFile" type="file" accept="audio/*,.m4a" />
+          <button class="primary" id="analyzeReference" type="button">Analyze sample</button>
+        </div>
+        <div class="analysis-grid hidden" id="referenceResults">
+          <div><span>Estimated pitch</span><strong id="pitchEstimate">—</strong></div>
+          <div><span>Voice character</span><strong id="characterEstimate">—</strong></div>
+          <div><span>Brightness</span><strong id="brightnessEstimate">—</strong></div>
+          <div><span>Average loudness</span><strong id="loudnessEstimate">—</strong></div>
+        </div>
+        <button class="download-btn hidden" id="applyReference" type="button">Apply suggested tone</button>
+      </div>
+    </section>
+
+    <div class="privacy"><span>◈</span> it's work locally · No account · Mr.Ali </div>  
+    <div class="privacy"> <span>◈</span> contact me on <a href="https://www.linkedin.com/in/mr-ali-8a3678371" target="_blank">LinkedIn</a> </div>
+  </main>
+  <div class="toast" id="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>
