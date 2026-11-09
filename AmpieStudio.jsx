@@ -171,7 +171,7 @@ export default function AmpieStudio() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`border-3 border-[#FFF21A] bg-[#06000c] text-[#FFF21A] px-5 py-3 text-sm font-bold uppercase shadow-[4px_4px_0px_#FFF21A] transition-all hover:bg-[#D700FF] hover:text-white pointer-events-auto ${
-                activeTab === tab.id ? 'bg-[#39FF14]! text-[#06000c]! shadow-[0px_0px_0px_transparent]! translate-x-1 translate-y-1' : ''
+                activeTab === tab.id ? 'bg-[#39FF14] text-[#06000c] shadow-[0px_0px_0px_transparent] translate-x-1 translate-y-1' : ''
               }`}
             >
               {tab.label}
@@ -214,75 +214,87 @@ export default function AmpieStudio() {
                   </div>
                   <button onClick={() => setFile(null)} className="border-2 border-red-500 text-red-500 px-3 py-1 font-bold">×</button>
                 </div>
-)}
-OUT //Parameters
-GLITCH CORE DSP
+              )}
+            </div>
 
+            <div className="bg-[#06000c] border-4 border-[#FFF21A] p-8 shadow-[14px_14px_0px_#00FFFF]">
+              <div className="border-b border-[#3D0066] pb-4 mb-6 flex justify-between items-center">
+                <div className="text-xl uppercase font-bold text-white"><span className="text-[#39FF14] mr-2">OUT //</span>Parameters</div>
+                <span className="text-xs text-[#BC85E6]">GLITCH CORE DSP</span>
+              </div>
 
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  {['balanced', 'warm', 'cold'].map((t) => (
+                    <button key={t} onClick={() => setTonePreset(t)} className={`flex-1 min-h-[38px] border-2 border-[#3D0066] bg-white/5 text-[#BC85E6] font-bold text-xs uppercase ${tonePreset === t ? 'bg-[#D700FF] text-white border-[#FFF21A]' : ''}`}>{t}</button>
+                  ))}
+                </div>
 
-{['balanced', 'warm', 'cold'].map((t) => (
-<button key={t} onClick={() => setTonePreset(t)} className={min-h-[38px] border-2 border-[#3D0066] bg-white/5 text-[#BC85E6] font-bold text-xs uppercase ${tonePreset === t ? 'bg-[#D700FF]! text-white! border-[#FFF21A]!' : ''}}>{t}
-))}
+                <div className="flex gap-2">
+                  {['35', '55', '78'].map((n) => (
+                    <button key={n} onClick={() => setNoisePreset(n)} className={`flex-1 min-h-[38px] border-2 border-[#3D0066] bg-white/5 text-[#BC85E6] font-bold text-xs uppercase ${noisePreset === n ? 'bg-[#D700FF] text-white border-[#FFF21A]' : ''}`}>{n}</button>
+                  ))}
+                </div>
 
+                {[
+                  { label: 'Noise Isolation', value: noiseReduction, setter: setNoiseReduction, suffix: '%' },
+                  { label: 'Laser Clarity', value: voiceClarity, setter: setVoiceClarity, suffix: '%' },
+                  { label: 'Sub Bass Boost', value: bassWarmth, setter: setBassWarmth, min: -8, max: 8, suffix: ' dB' },
+                  { label: 'Volume Gain', value: gainAmplification, setter: setGainAmplification, max: 18, suffix: ' dB' }
+                ].map((slider, idx) => (
+                  <div key={idx} className="space-y-1">
+                    <div className="flex justify-between text-xs font-bold text-white">
+                      <span>{slider.label}</span>
+                      <span>{slider.value}{slider.suffix}</span>
+                    </div>
+                    <input type="range" min={slider.min || 0} max={slider.max || 100} value={slider.value} onChange={(e) => slider.setter(+e.target.value)} className="w-full" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
-{['35', '55', '78'].map((n) => (
-<button key={n} onClick={() => setNoisePreset(n)} className={min-h-[38px] border-2 border-[#3D0066] bg-white/5 text-[#BC85E6] font-bold text-xs uppercase ${noisePreset === n ? 'bg-[#D700FF]! text-white! border-[#FFF21A]!' : ''}}>{n}
-))}
+        {/* 02. RESTRUCTURED SPATIAL TEXT TO SPEECH VIEW */}
+        {activeTab === 'ttsView' && (
+          <section className="bg-[#06000c] border-4 border-[#FFF21A] p-8 shadow-[14px_14px_0px_#D700FF]">
+            <div className="border-b border-[#3D0066] pb-4 mb-6 text-xl uppercase font-bold text-white"><span className="text-[#39FF14] mr-2">TTS //</span>Text Matrix</div>
+            <textarea value={ttsText} onChange={(e) => setTtsText(e.target.value)} placeholder="Type or paste the raw layout content data..." className="w-full min-h-[160px] bg-black border-3 border-[#3D0066] text-white p-4 font-inherit outline-none focus:border-[#39FF14] mb-6" />
+            <button onClick={() => setTtsText('')} className="border-3 border-black bg-transparent text-[#BC85E6] uppercase font-bold px-5 py-3 text-xs shadow-[4px_4px_0px_#000000] hover:border-[#FFF21A] hover:text-[#FFF21A]">KILL SPEECH</button>
+          </section>
+        )}
 
-{[
-{ label: 'Noise Isolation', value: noiseReduction, setter: setNoiseReduction, suffix: '%' },
-{ label: 'Laser Clarity', value: voiceClarity, setter: setVoiceClarity, suffix: '%' },
-{ label: 'Sub Bass Boost', value: bassWarmth, setter: setBassWarmth, min: -8, max: 8, suffix: ' dB' },
-{ label: 'Volume Gain', value: gainAmplification, setter: setGainAmplification, max: 18, suffix: ' dB' }
-].map((slider, idx) => (
-))}
+        {/* 03. SPEECH TO TEXT VIEW */}
+        {activeTab === 'sttView' && (
+          <section className="bg-[#06000c] border-4 border-[#FFF21A] p-8 shadow-[14px_14px_0px_#00FFFF]">
+            <div className="border-b border-[#3D0066] pb-4 mb-6 flex justify-between items-center">
+              <div className="text-xl uppercase font-bold text-white"><span className="text-[#39FF14] mr-2">STT //</span>Data Stream Transcription</div>
+              <span className="text-xs text-[#39FF14] font-bold">{sttStatus}</span>
+            </div>
+            <textarea value={sttText} onChange={(e) => setSttText(e.target.value)} placeholder="System logs print metrics..." className="w-full min-h-[160px] bg-black border-3 border-[#3D0066] text-white p-4 font-inherit outline-none focus:border-[#39FF14]" />
+          </section>
+        )}
 
-✦ FIRE CORE SYNTHESIS
+        {/* 04. VOICE REFERENCE VIEW */}
+        {activeTab === 'referenceView' && (
+          <section className="bg-[#06000c] border-4 border-[#FFF21A] p-8 shadow-[14px_14px_0px_#D700FF]">
+            <div className="border-b border-[#3D0066] pb-4 mb-6 text-xl uppercase font-bold text-white"><span className="text-[#39FF14] mr-2">REF //</span>Vector Fingerprints</div>
+            <p className="text-sm text-[#BC85E6]">Biometric soundwave parsing maps execute safely here.</p>
+          </section>
+        )}
 
-
-)}
-{/* 02. RESTRUCTURED SPATIAL TEXT TO SPEECH VIEW */}
-{activeTab === 'ttsView' && (
-TTS //Text Matrix
-
-<textarea value={ttsText} onChange={(e) => setTtsText(e.target.value)} placeholder="Type or paste the raw layout content data..." className="w-full min-h-[160px] bg-black border-3 border-[#3D0066] text-white p-4 font-inherit outline-none focus:border-[#39FF14] mb-6" />
-{/* Debugged Two-Column Spacing Field Grid */}
-{[
-{ label: 'Speaking rate', value: ttsRate, setter: setTtsRate, max: 200, suffix: 'x' },
-{ label: 'Voice pitch', value: ttsPitch, setter: setTtsPitch, max: 150, suffix: '' },
-{ label: 'Output Volume', value: ttsVolume, setter: setTtsVolume, suffix: '%' }
-].map((s, i) => (
-))}
-<button onClick={() => setTtsText('')} className="border-3 border-black bg-transparent text-[#BC85E6] uppercase font-bold px-5 py-3 text-xs shadow-[4px_4px_0px_#000000] hover:border-[#FFF21A] hover:text-[#FFF21A]">KILL SPEECH
-IGNITE SYNTH
-
-
-)}
-{/* 03. SPEECH TO TEXT VIEW */}
-{activeTab === 'sttView' && (
-STT //Data Stream Transcription
-{sttStatus}
-
-<textarea value={sttText} onChange={(e) => setSttText(e.target.value)} placeholder="System logs print metrics..." className="w-full min-h-[160px] bg-black border-3 border-[#3D0066] text-white p-4 font-inherit outline-none focus:border-[#39FF14]" />
-
-)}
-{/* 04. VOICE REFERENCE VIEW */}
-{activeTab === 'referenceView' && (
-REF //Vector Fingerprints
-
-Biometric soundwave parsing maps execute safely here.
-
-)}
-{/* 05. TERMINAL LAYER VIEW */}
-{activeTab === 'aboutView' && (
-SYS //Terminal Logs
-
-Core status: 100% operational. DSP threads running safely inside local server matrices.
-
-)}
-DATA STAYS ISOLATED. OPERATING UNDER AMPIE RADICAL INTERACTION INTERFACES.
-
-
-
-);
+        {/* 05. TERMINAL LAYER VIEW */}
+        {activeTab === 'aboutView' && (
+          <section className="bg-[#06000c] border-4 border-[#FFF21A] p-8 shadow-[14px_14px_0px_#00FFFF]">
+            <div className="border-b border-[#3D0066] pb-4 mb-6 text-xl uppercase font-bold text-white"><span className="text-[#39FF14] mr-2">SYS //</span>Terminal Logs</div>
+            <p className="text-sm text-white">Core status: 100% operational. DSP threads running safely inside local server matrices.</p>
+          </section>
+        )}
+      </main>
+      
+      <footer className="text-center text-xs text-[#BC85E6] py-6 z-10 relative">
+        DATA STAYS ISOLATED. OPERATING UNDER AMPIE RADICAL INTERACTION INTERFACES.
+      </footer>
+    </div>
+  );
 }

@@ -106,7 +106,13 @@
         <label class="control"><div><span>Voice pitch</span><output id="ttsPitchOut">1.00</output></div><input id="ttsPitch" type="range" min="50" max="150" value="100" /></label>
         <label class="control"><div><span>Volume</span><output id="ttsVolumeOut">90%</output></div><input id="ttsVolume" type="range" min="0" max="100" value="90" /></label>
         <p class="utility-note" id="ttsNote">TTS quality and language support depend on voices installed in your browser or operating system.</p>
-        <div class="result-actions"><button class="secondary" id="ttsStop" type="button">Stop</button><button class="download-btn" id="ttsSpeak" type="button">Speak text</button></div>
+        <p class="utility-note" id="ttsDownloadNote">Create a voice note to preview and download the selected voice as a WAV file. When asked, share this tab and enable tab audio.</p>
+        <div class="result-actions"><button class="secondary" id="ttsStop" type="button">Stop</button><button class="secondary" id="ttsSpeak" type="button">Speak text</button><button class="download-btn" id="ttsCreateNote" type="button">Create voice note</button></div>
+        <div class="tts-preview hidden" id="ttsPreview">
+          <label for="ttsAudio">Voice note preview</label>
+          <audio id="ttsAudio" controls preload="metadata"></audio>
+          <a class="download-btn" id="ttsDownload" download="clearvoice-voice-note.wav">Download voice note</a>
+        </div>
       </div>
     </section>
 
@@ -117,10 +123,10 @@
     <section class="utility-grid tool-view" id="sttView">
       <div class="utility-card glass">
         <div class="card-heading"><div><span class="step">STT</span><h2>Speech to text</h2></div><span class="auto-badge" id="sttStatus">MIC OFF</span></div>
-        <textarea id="sttText" placeholder="Your transcript appears here…"></textarea>
+        <textarea id="sttText" dir="auto" placeholder="Your transcript appears here…"></textarea>
         <label class="control"><div><span>Language</span></div><select id="sttLanguage"><option value="en-US">English (US)</option><option value="en-GB">English (UK)</option><option value="ur-PK">Urdu</option><option value="hi-IN">Hindi</option><option value="es-ES">Spanish</option><option value="fr-FR">French</option><option value="ar-SA">Arabic</option><option value="zh-CN">Chinese (Mandarin)</option></select></label>
         <div class="result-actions"><button class="secondary" id="sttCopy" type="button">Copy text</button><button class="download-btn" id="sttStart" type="button">Start listening</button></div>
-        <p class="utility-note" id="sttNote">Uses the browser speech-recognition feature. Recognition availability and privacy depend on the browser.</p>
+        <p class="utility-note" id="sttNote">Urdu uses multilingual Whisper on this device (about 250 MB downloaded on first use); your audio stays on this device. Other languages use browser speech recognition.</p>
       </div>
     </section>
 

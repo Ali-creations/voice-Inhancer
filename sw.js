@@ -1,4 +1,4 @@
-const CACHE = 'clearvoice-v2';
+const CACHE = 'clearvoice-v3';
 const ASSETS = [
   './', 
   './index.html', 

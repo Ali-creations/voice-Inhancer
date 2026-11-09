@@ -582,6 +582,31 @@ box-shadow: 0px 0px 0px #000000 !important;
     box-shadow: 0 0 0 4px rgba(138, 43, 226, .22);
 }
 
+.tts-preview {
+    display: grid;
+    gap: 12px;
+    margin-top: 20px;
+    padding: 16px;
+    border: 2px solid var(--blue);
+    background: #101010;
+}
+
+.tts-preview label {
+    color: #fff;
+    font-weight: 800;
+}
+
+.tts-preview audio {
+    width: 100%;
+}
+
+.tts-preview .download-btn {
+    display: inline-block;
+    justify-self: start;
+    color: #fff;
+    text-decoration: none;
+}
+
 @keyframes markFloat {
     0%, 100% { transform: translateY(0) rotate(-5deg); }
     50% { transform: translateY(-5px) rotate(2deg); }

@@ -350,20 +350,30 @@ function loadSystemVoices() {
   const compatible = voices.filter(voice => voiceLanguageMatches(voice, requestedLanguage));
   select.innerHTML = '';
 
-  const available = compatible.length ? compatible : voices;
+  const isUrdu = requestedLanguage.toLowerCase().startsWith('ur');
+  const available = isUrdu ? compatible : compatible.length ? compatible : voices;
   available.forEach((voice) => {
     const option = document.createElement('option');
     option.value = voices.indexOf(voice).toString();
-    option.textContent = `${voice.name} (${voice.lang})${compatible.length ? '' : ' — language fallback'}`;
+    option.textContent = `${voice.name} (${voice.lang})${compatible.length || isUrdu ? '' : ' — language fallback'}`;
     select.appendChild(option);
   });
 
-  if (!voices.length) {
-    const option = document.createElement('option'); option.textContent = 'Browser default voice'; option.value = '-1'; select.appendChild(option);
+  if (!available.length) {
+    const option = document.createElement('option');
+    option.textContent = isUrdu ? 'No Urdu voice installed' : 'Browser default voice';
+    option.value = '-1';
+    select.appendChild(option);
   }
+  select.disabled = isUrdu && !compatible.length;
+  $('#ttsSpeak').disabled = isUrdu && !compatible.length;
+  $('#ttsCreateNote').disabled = isUrdu && !compatible.length;
   const selectedVoice = voices[+select.value];
   $('#ttsVoiceName').value = selectedVoice ? `${selectedVoice.name} (${selectedVoice.lang})` : 'Browser default voice';
-  if (!compatible.length && voices.length) {
+  if (isUrdu && !compatible.length) {
+    $('#ttsVoiceName').value = 'No Urdu voice installed';
+    $('#ttsNote').textContent = 'Urdu is not spoken because this browser only reports English voices. This app uses installed browser voices; add an Urdu TTS voice/model to speak Urdu.';
+  } else if (!compatible.length && voices.length) {
     $('#ttsVoiceName').value += ' — fallback';
     $('#ttsNote').textContent = `No ${requestedLanguage} voice is installed. The browser will use a fallback voice and Urdu/non-English pronunciation may be inaccurate.`;
   } else if (compatible.length) {
@@ -379,20 +389,62 @@ $('#ttsPitch').addEventListener('input', e => $('#ttsPitchOut').value = `${(+e.t
 $('#ttsVolume').addEventListener('input', e => $('#ttsVolumeOut').value = `${e.target.value}%`);
 $('#ttsLanguage').addEventListener('change', loadSystemVoices);
 $('#ttsVoice').addEventListener('change', e => $('#ttsVoiceName').value = e.target.selectedOptions[0]?.textContent || 'System voice');
-$('#ttsSpeak').addEventListener('click', () => {
-  const text = $('#ttsText').value.trim();
-  if (!text) return toast('Enter text to speak');
-  if (!('speechSynthesis' in window)) return toast('Text-to-speech is unavailable in this browser');
-  speechSynthesis.cancel();
+let ttsCaptureStream = null, ttsAudioContext = null, ttsAudioProcessor = null, ttsAudioSource = null;
+let ttsAudioSamples = [], ttsAudioSampleRate = 0, ttsAudioUrl = '';
+
+function encodeTtsWav(samples, sampleRate) {
+  const bytesPerSample = 2;
+  const buffer = new ArrayBuffer(44 + samples.length * bytesPerSample);
+  const view = new DataView(buffer);
+  const writeText = (offset, value) => {
+    for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i));
+  };
+  writeText(0, 'RIFF');
+  view.setUint32(4, 36 + samples.length * bytesPerSample, true);
+  writeText(8, 'WAVE');
+  writeText(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * bytesPerSample, true);
+  view.setUint16(32, bytesPerSample, true);
+  view.setUint16(34, 16, true);
+  writeText(36, 'data');
+  view.setUint32(40, samples.length * bytesPerSample, true);
+  for (let i = 0; i < samples.length; i++) {
+    const sample = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(44 + i * bytesPerSample, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+  }
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
+function createTtsUtterance(text) {
   const utterance = new SpeechSynthesisUtterance(text);
   const voices = speechSynthesis.getVoices();
   const index = +$('#ttsVoice').value;
   const language = $('#ttsLanguage').value;
+  if (language.toLowerCase().startsWith('ur') && (!voices[index] || !voiceLanguageMatches(voices[index], language))) {
+    throw new Error('No Urdu voice is installed. Add an Urdu TTS voice/model before speaking Urdu.');
+  }
   if (voices[index]) utterance.voice = voices[index];
   utterance.lang = language;
   utterance.rate = +$('#ttsRate').value / 100;
   utterance.pitch = +$('#ttsPitch').value / 100;
   utterance.volume = +$('#ttsVolume').value / 100;
+  return utterance;
+}
+
+$('#ttsSpeak').addEventListener('click', () => {
+  const text = $('#ttsText').value.trim();
+  if (!text) return toast('Enter text to speak');
+  if (!('speechSynthesis' in window)) return toast('Text-to-speech is unavailable in this browser');
+  if ($('#ttsLanguage').value.toLowerCase().startsWith('ur') && !voiceLanguageMatches(speechSynthesis.getVoices()[+$('#ttsVoice').value] || {}, 'ur-PK')) {
+    $('#ttsNote').textContent = 'Urdu cannot be spoken: no Urdu TTS voice is installed in this browser. Add an Urdu TTS voice/model to continue.';
+    return toast('No Urdu voice is installed');
+  }
+  speechSynthesis.cancel();
+  const utterance = createTtsUtterance(text);
   utterance.onerror = event => {
     const reason = event.error === 'voice-unavailable' ? 'No installed voice supports this language. Install a matching Windows voice, then reload.' : `Browser speech error: ${event.error}`;
     toast(reason); $('#ttsVoiceName').value = reason;
@@ -400,17 +452,256 @@ $('#ttsSpeak').addEventListener('click', () => {
   utterance.onend = () => $('#ttsVoiceName').value = $('#ttsVoice').selectedOptions[0]?.textContent || 'Browser default voice';
   speechSynthesis.speak(utterance);
 });
-$('#ttsStop').addEventListener('click', () => { if ('speechSynthesis' in window) speechSynthesis.cancel(); });
+
+$('#ttsCreateNote').addEventListener('click', async () => {
+  const text = $('#ttsText').value.trim();
+  const noteButton = $('#ttsCreateNote');
+  const note = $('#ttsDownloadNote');
+  if (!text) return toast('Enter text to speak');
+  if (!('speechSynthesis' in window)) return toast('Text-to-speech is unavailable in this browser');
+  if ($('#ttsLanguage').value.toLowerCase().startsWith('ur') && !voiceLanguageMatches(speechSynthesis.getVoices()[+$('#ttsVoice').value] || {}, 'ur-PK')) {
+    $('#ttsNote').textContent = 'Urdu cannot be spoken: no Urdu TTS voice is installed in this browser. Add an Urdu TTS voice/model to create a voice note.';
+    return toast('No Urdu voice is installed');
+  }
+  if (!navigator.mediaDevices?.getDisplayMedia) {
+    note.textContent = 'Voice-note recording is unavailable in this browser. Try a recent version of Chrome or Edge.';
+    return toast('Voice-note recording is unavailable');
+  }
+
+  noteButton.disabled = true;
+  note.textContent = 'Choose this tab in the sharing prompt and enable tab audio to create your voice note.';
+  let captureStream = null;
+  try {
+    captureStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true, preferCurrentTab: true });
+    const audioTracks = captureStream.getAudioTracks();
+    if (!audioTracks.length) throw new Error('No tab audio was shared. Choose this tab and enable its audio in the sharing prompt.');
+
+    speechSynthesis.cancel();
+    ttsCaptureStream = captureStream;
+    ttsAudioSamples = [];
+    ttsAudioContext = new AudioContext();
+    ttsAudioSampleRate = ttsAudioContext.sampleRate;
+    ttsAudioSource = ttsAudioContext.createMediaStreamSource(new MediaStream(audioTracks));
+    ttsAudioProcessor = ttsAudioContext.createScriptProcessor(4096, 2, 1);
+    ttsAudioProcessor.onaudioprocess = event => {
+      const input = event.inputBuffer;
+      const mono = new Float32Array(input.length);
+      for (let channel = 0; channel < input.numberOfChannels; channel++) {
+        const samples = input.getChannelData(channel);
+        for (let i = 0; i < samples.length; i++) mono[i] += samples[i] / input.numberOfChannels;
+      }
+      ttsAudioSamples.push(mono);
+      event.outputBuffer.getChannelData(0).fill(0);
+    };
+    ttsAudioSource.connect(ttsAudioProcessor);
+    ttsAudioProcessor.connect(ttsAudioContext.destination);
+    await ttsAudioContext.resume();
+
+    note.textContent = 'Recording your voice note…';
+    const utterance = createTtsUtterance(text);
+    const speechFinished = new Promise((resolve, reject) => {
+      utterance.onend = resolve;
+      utterance.onerror = event => reject(new Error(event.error === 'voice-unavailable'
+        ? 'No installed voice supports this language.'
+        : `Speech error: ${event.error}`));
+    });
+    speechSynthesis.speak(utterance);
+    await speechFinished;
+    const sampleCount = ttsAudioSamples.reduce((total, chunk) => total + chunk.length, 0);
+    if (!sampleCount) throw new Error('No tab audio was captured. Choose this tab and enable its audio when sharing.');
+    const samples = new Float32Array(sampleCount);
+    let sampleOffset = 0;
+    for (const chunk of ttsAudioSamples) {
+      samples.set(chunk, sampleOffset);
+      sampleOffset += chunk.length;
+    }
+    const blob = encodeTtsWav(samples, ttsAudioSampleRate);
+
+    if (ttsAudioUrl) URL.revokeObjectURL(ttsAudioUrl);
+    ttsAudioUrl = URL.createObjectURL(blob);
+    $('#ttsAudio').src = ttsAudioUrl;
+    $('#ttsDownload').href = ttsAudioUrl;
+    $('#ttsDownload').download = `clearvoice-voice-note-${new Date().toISOString().replace(/[:.]/g, '-')}.wav`;
+    $('#ttsPreview').classList.remove('hidden');
+    $('#ttsVoiceName').value = $('#ttsVoice').selectedOptions[0]?.textContent || 'Browser default voice';
+    note.textContent = 'Voice note ready. Preview it here or download the audio file.';
+  } catch (error) {
+    console.error('Could not create TTS voice note:', error);
+    note.textContent = error.message || 'Could not create the voice note.';
+    toast('Could not create the voice note');
+  } finally {
+    if (captureStream) captureStream.getTracks().forEach(track => track.stop());
+    if (ttsAudioProcessor) ttsAudioProcessor.disconnect();
+    if (ttsAudioSource) ttsAudioSource.disconnect();
+    if (ttsAudioContext && ttsAudioContext.state !== 'closed') await ttsAudioContext.close();
+    ttsCaptureStream = null;
+    ttsAudioContext = null;
+    ttsAudioProcessor = null;
+    ttsAudioSource = null;
+    ttsAudioSamples = [];
+    ttsAudioSampleRate = 0;
+    noteButton.disabled = false;
+  }
+});
+
+$('#ttsStop').addEventListener('click', () => {
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  if (ttsCaptureStream) ttsCaptureStream.getTracks().forEach(track => track.stop());
+  if (ttsAudioProcessor) ttsAudioProcessor.disconnect();
+  if (ttsAudioSource) ttsAudioSource.disconnect();
+  if (ttsAudioContext && ttsAudioContext.state !== 'closed') ttsAudioContext.close();
+});
 
 let recognition = null, listening = false;
 let recognizedTranscript = '';
+let urduRecording = false, urduStream = null, urduAudioContext = null, urduAudioSource = null, urduProcessor = null;
+let urduAudioChunks = [], urduSampleRate = 0;
+let urduTranscriberPromise = null;
 const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-$('#sttStart').addEventListener('click', () => {
+const sttStart = $('#sttStart');
+const sttStatus = $('#sttStatus');
+const sttNote = $('#sttNote');
+
+async function getUrduTranscriber() {
+  if (!urduTranscriberPromise) {
+    urduTranscriberPromise = import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.2')
+      .then(({ pipeline }) => pipeline('automatic-speech-recognition', 'onnx-community/whisper-small', {
+        dtype: 'q8',
+        progress_callback: progress => {
+          if (progress.status === 'progress' && Number.isFinite(progress.progress)) {
+            sttNote.textContent = `Downloading the Urdu model: ${Math.round(progress.progress)}% of ${progress.file || 'a model file'}.`;
+          }
+        }
+      }))
+      .catch(error => {
+        urduTranscriberPromise = null;
+        throw error;
+      });
+  }
+  return urduTranscriberPromise;
+}
+
+async function transcribeUrdu(audioChunks, inputSampleRate) {
+  const sampleCount = audioChunks.reduce((total, chunk) => total + chunk.length, 0);
+  if (!sampleCount) throw new Error('No audio was recorded. Try speaking again.');
+  sttStatus.textContent = 'LOADING MODEL';
+  sttNote.textContent = 'Loading multilingual Whisper. On first use, the model downloads before transcription.';
+  const transcriber = await getUrduTranscriber();
+
+  sttStatus.textContent = 'TRANSCRIBING';
+  sttNote.textContent = 'Transcribing Urdu on this device…';
+  const mono = new Float32Array(sampleCount);
+  let offset = 0;
+  for (const chunk of audioChunks) {
+    mono.set(chunk, offset);
+    offset += chunk.length;
+  }
+  const sampleRate = 16000;
+  const frameCount = Math.ceil(mono.length * sampleRate / inputSampleRate);
+  const offline = new OfflineAudioContext(1, frameCount, sampleRate);
+  const monoBuffer = offline.createBuffer(1, mono.length, inputSampleRate);
+  monoBuffer.copyToChannel(mono, 0);
+  const source = offline.createBufferSource();
+  source.buffer = monoBuffer;
+  source.connect(offline.destination);
+  source.start();
+  const resampled = await offline.startRendering();
+  const result = await transcriber(resampled.getChannelData(0), {
+    sampling_rate: sampleRate,
+    chunk_length_s: 30,
+    stride_length_s: 5,
+    language: 'urdu',
+    task: 'transcribe'
+  });
+  const transcript = result.text.trim();
+  if (!transcript) throw new Error('No Urdu speech was detected. Try a clearer or longer recording.');
+  const previousText = $('#sttText').value.trimEnd();
+  $('#sttText').value = previousText ? `${previousText}\n${transcript}` : transcript;
+  recognizedTranscript = `${$('#sttText').value}\n`;
+  sttStatus.textContent = 'COMPLETE';
+  sttNote.textContent = 'Urdu transcription complete. Audio was processed on this device.';
+}
+
+function stopUrduRecording() {
+  urduRecording = false;
+  if (urduStream) urduStream.getTracks().forEach(track => track.stop());
+  urduStream = null;
+  if (urduProcessor) urduProcessor.disconnect();
+  if (urduAudioSource) urduAudioSource.disconnect();
+  if (urduAudioContext && urduAudioContext.state !== 'closed') urduAudioContext.close();
+  urduProcessor = null;
+  urduAudioSource = null;
+  urduAudioContext = null;
+  const audioChunks = urduAudioChunks;
+  const sampleRate = urduSampleRate;
+  urduAudioChunks = [];
+  urduSampleRate = 0;
+  sttStart.textContent = 'Start listening';
+  sttStart.disabled = true;
+  transcribeUrdu(audioChunks, sampleRate)
+    .catch(error => {
+      console.error('Urdu transcription failed:', error);
+      sttStatus.textContent = 'ERROR';
+      sttNote.textContent = `Urdu transcription failed: ${error.message || error}`;
+      toast('Urdu transcription failed');
+    })
+    .finally(() => {
+      sttStart.disabled = false;
+      sttStart.textContent = 'Start listening';
+    });
+}
+
+async function startUrduRecording() {
+  if (!navigator.mediaDevices?.getUserMedia || !window.AudioContext) {
+    sttNote.textContent = 'Microphone recording is unavailable in this browser. Use a recent browser over HTTPS or localhost.';
+    return toast('Microphone recording is unavailable');
+  }
+  try {
+    urduStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    urduAudioChunks = [];
+    urduAudioContext = new AudioContext();
+    urduSampleRate = urduAudioContext.sampleRate;
+    urduAudioSource = urduAudioContext.createMediaStreamSource(urduStream);
+    urduProcessor = urduAudioContext.createScriptProcessor(4096, 1, 1);
+    urduProcessor.onaudioprocess = event => {
+      if (!urduRecording) return;
+      urduAudioChunks.push(new Float32Array(event.inputBuffer.getChannelData(0)));
+      event.outputBuffer.getChannelData(0).fill(0);
+    };
+    urduAudioSource.connect(urduProcessor);
+    urduProcessor.connect(urduAudioContext.destination);
+    await urduAudioContext.resume();
+    urduRecording = true;
+    sttStatus.textContent = 'LISTENING';
+    sttStart.textContent = 'Stop & transcribe';
+    sttNote.textContent = 'Listening for Urdu… Stop the recording to transcribe it with Whisper. Keep this tab open while the model loads.';
+  } catch (error) {
+    if (urduStream) urduStream.getTracks().forEach(track => track.stop());
+    urduStream = null;
+    urduRecording = false;
+    if (urduProcessor) urduProcessor.disconnect();
+    if (urduAudioSource) urduAudioSource.disconnect();
+    if (urduAudioContext && urduAudioContext.state !== 'closed') urduAudioContext.close();
+    urduProcessor = null;
+    urduAudioSource = null;
+    urduAudioContext = null;
+    urduAudioChunks = [];
+    urduSampleRate = 0;
+    console.error('Could not start Urdu recording:', error);
+    sttStatus.textContent = 'ERROR';
+    sttNote.textContent = `Could not start microphone recording: ${error.message || error}`;
+    toast('Could not access the microphone');
+  }
+}
+
+sttStart.addEventListener('click', () => {
+  if (urduRecording) { stopUrduRecording(); return; }
   if (listening) { recognition?.stop(); return; }
-  if (!Recognition) { $('#sttNote').textContent = 'Speech recognition is not supported by this browser. Try the latest Chrome or Edge on HTTPS.'; return toast('Speech recognition is unavailable'); }
+  if ($('#sttLanguage').value === 'ur-PK') { startUrduRecording(); return; }
+  if (!Recognition) { sttNote.textContent = 'Speech recognition is not supported by this browser. Try the latest Chrome or Edge on HTTPS.'; return toast('Speech recognition is unavailable'); }
   recognition = new Recognition(); recognition.continuous = true; recognition.interimResults = true; recognition.lang = $('#sttLanguage').value;
   recognizedTranscript = $('#sttText').value ? $('#sttText').value.trim() + ' ' : '';
-  recognition.onstart = () => { listening = true; $('#sttStatus').textContent = 'LISTENING'; $('#sttStart').textContent = 'Stop listening'; $('#sttNote').textContent = 'Listening… Speak clearly in the selected language.'; };
+  recognition.onstart = () => { listening = true; sttStatus.textContent = 'LISTENING'; sttStart.textContent = 'Stop listening'; sttNote.textContent = 'Listening… Speak clearly in the selected language.'; };
   recognition.onresult = event => {
     let sessionFinal = '', interimText = '';
     for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -427,16 +718,16 @@ $('#sttStart').addEventListener('click', () => {
       'network': 'Speech recognition needs a working network connection in this browser.',
       'language-not-supported': 'This browser does not support the selected language. Try an English language or install browser language support.'
     };
-    $('#sttNote').textContent = messages[event.error] || `Recognition error: ${event.error}`;
-    $('#sttStatus').textContent = 'ERROR';
+    sttNote.textContent = messages[event.error] || `Recognition error: ${event.error}`;
+    sttStatus.textContent = 'ERROR';
   };
-  recognition.onend = () => { listening = false; $('#sttStatus').textContent = 'MIC OFF'; $('#sttStart').textContent = 'Start listening'; };
+  recognition.onend = () => { listening = false; sttStatus.textContent = 'MIC OFF'; sttStart.textContent = 'Start listening'; };
   try { recognition.start(); }
   catch (error) {
     listening = false;
-    $('#sttStatus').textContent = 'ERROR';
-    $('#sttStart').textContent = 'Start listening';
-    $('#sttNote').textContent = `Could not start recognition: ${error.message || error}`;
+    sttStatus.textContent = 'ERROR';
+    sttStart.textContent = 'Start listening';
+    sttNote.textContent = `Could not start recognition: ${error.message || error}`;
   }
 });
 $('#sttCopy').addEventListener('click', async () => {
